@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech Data - Augmented</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.min.js"></script>
+</head>
+<body>
+    <header class="top-header">
+        <div class="header-left">
+            <h1>SPEECH DATA – AUGMENTED</h1>
+            <p class="subtitle">Prompt-driven acoustic transformation & validation</p>
+        </div>
+        <div class="header-right">
+            <div class="status-indicator">
+                <span class="status-dot"></span>
+                <span class="status-text">State: <span id="global-state">NO_REQUEST</span></span>
+            </div>
+        </div>
+    </header>
+
+    <main class="workflow-container">
+        <!-- Stage 01: Source Audio -->
+        <section class="card" id="stage-01">
+            <div class="card-header">
+                <h2>01 SOURCE AUDIO</h2>
+            </div>
+            <div class="card-body">
+                <div id="drop-zone" class="drop-zone">
+                    <div class="drop-content">
+                        <span class="icon">🎵</span>
+                        <p>Drag & Drop Audio Files here</p>
+                        <p>or</p>
+                        <button class="btn btn-secondary" onclick="document.getElementById('file-input').click()">Browse Files</button>
+                        <input type="file" id="file-input" multiple accept="audio/wav, audio/mp3, audio/flac, audio/x-m4a" hidden>
+                        <p class="formats">WAV • MP3 • FLAC • M4A</p>
+                    </div>
+                </div>
+
+                <div id="file-list-container" class="hidden">
+                    <div class="file-list-header">
+                        <h3>SOURCE AUDIO — <span id="file-count">0</span> FILES</h3>
+                    </div>
+                    <ul id="file-list" class="file-list">
+                        <!-- Populated by JS -->
+                    </ul>
+                    <div id="original-waveform-container" class="waveform-box hidden">
+                        <div id="original-waveform"></div>
+                        <div class="waveform-controls">
+                            <button id="play-original-btn" class="btn btn-icon">▶ Play Original</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stage 02: Transformation Prompt -->
+        <section class="card hidden" id="stage-02">
+            <div class="card-header">
+                <h2>02 TRANSFORMATION</h2>
+            </div>
+            <div class="card-body">
+                <label>Describe how you want the speech to sound</label>
+                <textarea id="prompt-input" rows="3" placeholder="Make this sound like it was recorded in a large auditorium with moderate audience noise."></textarea>
+                
+                <div class="prompt-chips">
+                    <button class="chip" data-prompt="Large Auditorium">Large Auditorium</button>
+                    <button class="chip" data-prompt="Classroom">Classroom</button>
+                    <button class="chip" data-prompt="Phone Call">Phone Call</button>
+                    <button class="chip" data-prompt="Outdoor">Outdoor</button>
+                    <button class="chip" data-prompt="Add Traffic Noise">Add Traffic Noise</button>
+                </div>
+
+                <details class="advanced-controls">
+                    <summary>▸ Advanced Controls</summary>
+                    <div class="advanced-content">
+                        <label><input type="checkbox" checked> Preserve speaker characteristics</label>
+                        <label><input type="checkbox" checked> Preserve intelligibility</label>
+                        <label><input type="checkbox" checked> Avoid clipping</label>
+                        <div class="adv-row">
+                            <span>Target SNR tolerance</span>
+                            <span>±1.5 dB</span>
+                        </div>
+                        <div class="adv-row">
+                            <span>Random seed</span>
+                            <span>Auto</span>
+                        </div>
+                    </div>
+                </details>
+
+                <div class="action-row">
+                    <button id="analyze-btn" class="btn btn-primary">ANALYZE & CREATE PLAN</button>
+                </div>
+                
+                <!-- Clarification UI -->
+                <div id="clarification-box" class="clarification-box hidden">
+                    <h3>More information is needed</h3>
+                    <p id="clarification-reason"></p>
+                    <div id="clarification-options" class="prompt-chips"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stage 03: Input Profile -->
+        <section class="card hidden" id="stage-03">
+            <div class="card-header">
+                <h2>03 INPUT AUDIO PROFILE</h2>
+            </div>
+            <div class="card-body">
+                <div class="kpi-grid">
+                    <div class="kpi-item">
+                        <span class="kpi-label">Duration</span>
+                        <span class="kpi-value" id="kpi-duration">-</span>
+                    </div>
+                    <div class="kpi-item">
+                        <span class="kpi-label">Sample Rate</span>
+                        <span class="kpi-value" id="kpi-sr">-</span>
+                    </div>
+                    <div class="kpi-item">
+                        <span class="kpi-label">Channels</span>
+                        <span class="kpi-value" id="kpi-ch">-</span>
+                    </div>
+                    <div class="kpi-item">
+                        <span class="kpi-label">SNR</span>
+                        <span class="kpi-value" id="kpi-snr">-</span>
+                    </div>
+                    <div class="kpi-item">
+                        <span class="kpi-label">RMS</span>
+                        <span class="kpi-value" id="kpi-rms">-</span>
+                    </div>
+                    <div class="kpi-item">
+                        <span class="kpi-label">Peak</span>
+                        <span class="kpi-value" id="kpi-peak">-</span>
+                    </div>
+                </div>
+                <details class="advanced-controls mt-4">
+                    <summary>▸ View Full Profile</summary>
+                    <pre id="full-profile-json" class="json-dump"></pre>
+                </details>
+            </div>
+        </section>
+
+        <!-- Stage 04: Transformation Plan -->
+        <section class="card hidden" id="stage-04">
+            <div class="card-header">
+                <h2>04 AGENT TRANSFORMATION PLAN</h2>
+            </div>
+            <div class="card-body">
+                <div class="plan-details">
+                    <div class="plan-section">
+                        <h3>Target Intent</h3>
+                        <pre id="intent-json" class="json-dump"></pre>
+                    </div>
+                    <div class="plan-section">
+                        <h3>Planned Operations</h3>
+                        <ul id="operations-list" class="check-list">
+                            <!-- Populated by JS -->
+                        </ul>
+                    </div>
+                    <div class="plan-section">
+                        <h3>Constraints</h3>
+                        <ul class="check-list">
+                            <li>✓ Preserve speech intelligibility</li>
+                            <li>✓ Avoid clipping</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="action-row mt-4 right-align">
+                    <button id="edit-prompt-btn" class="btn btn-secondary mr-2">EDIT PROMPT</button>
+                    <button id="approve-btn" class="btn btn-primary">APPROVE & GENERATE</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stage 05: Processing Status -->
+        <section class="card hidden" id="stage-05">
+            <div class="card-header">
+                <h2>05 PROCESSING</h2>
+            </div>
+            <div class="card-body">
+                <ul class="progress-list" id="progress-list">
+                    <!-- Populated by JS polling -->
+                </ul>
+                <div class="progress-bar-container mt-4">
+                    <div class="progress-bar" id="job-progress-bar"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stage 06: Results -->
+        <section class="card hidden" id="stage-06">
+            <div class="card-header">
+                <h2>06 RESULTS</h2>
+            </div>
+            <div class="card-body">
+                <div class="results-grid">
+                    <div class="result-column">
+                        <h3>ORIGINAL</h3>
+                        <p class="filename" id="res-orig-file">-</p>
+                        <div id="res-orig-waveform" class="waveform-small"></div>
+                        <button id="play-res-orig" class="btn btn-secondary btn-sm mt-2">▶ Play</button>
+                    </div>
+                    <div class="result-column">
+                        <h3>AUGMENTED</h3>
+                        <p class="filename" id="res-aug-file">-</p>
+                        <div id="res-aug-waveform" class="waveform-small"></div>
+                        <button id="play-res-aug" class="btn btn-primary btn-sm mt-2">▶ Play</button>
+                    </div>
+                </div>
+
+                <div class="validation-section mt-6">
+                    <h3>Validation & Profile Comparison</h3>
+                    <table class="metrics-table">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th class="text-right">Before</th>
+                                <th class="text-right">After</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="metrics-tbody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                    
+                    <ul class="qa-checklist mt-4" id="qa-checklist">
+                        <!-- Populated by JS -->
+                    </ul>
+                </div>
+
+                <details class="advanced-controls mt-6">
+                    <summary>▸ Transformation Details</summary>
+                    <pre id="metadata-json" class="json-dump"></pre>
+                </details>
+
+                <div class="action-row mt-6">
+                    <button id="download-audio-btn" class="btn btn-secondary mr-2">DOWNLOAD AUDIO</button>
+                    <button id="download-meta-btn" class="btn btn-secondary">DOWNLOAD METADATA</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environments
+.env
+venv/
+env/
+.venv/
+prism/
+
+# Application Storage & Artifacts
+storage/
+uploads/
+outputs/
+plans/
+reports/
+profiles/
+
+# Testing
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
