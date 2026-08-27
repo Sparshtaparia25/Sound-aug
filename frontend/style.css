@@ -61,15 +61,77 @@ body {
     width: 8px;
     height: 8px;
     border-radius: 50%;
+    background-color: var(--text-secondary); /* Idle color */
+}
+
+.status-dot.active {
+    background-color: var(--accent-secondary);
+}
+
+.status-dot.success {
     background-color: var(--success);
 }
 
+.status-dot.error {
+    background-color: var(--danger);
+}
+
+.workflow-tracker-container {
+    padding: 1.5rem 2rem;
+    background-color: var(--bg-dark);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: center;
+}
+
+.workflow-tracker {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+}
+
+.step-node {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.step-icon {
+    font-family: monospace;
+}
+
+.step-node.completed {
+    color: var(--success);
+}
+.step-node.completed .step-icon::before { content: "✓"; }
+
+.step-node.active {
+    color: var(--text-primary);
+}
+.step-node.active .step-icon::before { content: "●"; color: var(--accent-secondary); }
+
+.step-node.pending .step-icon::before { content: "○"; }
+
+.step-line {
+    width: 30px;
+    height: 1px;
+    background-color: var(--border-color);
+}
+.step-line.active {
+    background-color: var(--accent-secondary);
+}
+
 .workflow-container {
-    max-width: 900px;
+    max-width: 1200px;
     margin: 2rem auto;
     display: flex;
     flex-direction: column;
     gap: 2rem;
+    padding: 0 1rem;
 }
 
 .card {
@@ -91,6 +153,9 @@ body {
     background-color: rgba(0,0,0,0.2);
     padding: 1rem 1.5rem;
     border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .card-header h2 {
@@ -98,6 +163,10 @@ body {
     font-weight: 600;
     letter-spacing: 0.05em;
     color: var(--text-secondary);
+}
+.card-header .card-status {
+    font-size: 0.875rem;
+    color: var(--success);
 }
 
 .card-body {
@@ -115,6 +184,10 @@ body {
 
 .drop-zone:hover {
     border-color: var(--accent-secondary);
+}
+
+.drop-zone.compact {
+    padding: 1.5rem 1rem;
 }
 
 .drop-content .icon {
@@ -141,7 +214,12 @@ body {
     font-weight: 500;
     cursor: pointer;
     border: none;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, opacity 0.2s;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .btn-primary {
@@ -149,7 +227,7 @@ body {
     color: white;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
     background-color: var(--accent-hover);
 }
 
@@ -159,7 +237,7 @@ body {
     color: var(--text-primary);
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
     background-color: rgba(255, 255, 255, 0.05);
 }
 
@@ -173,6 +251,13 @@ body {
 .mt-6 { margin-top: 1.5rem; }
 .mr-2 { margin-right: 0.5rem; }
 .right-align { text-align: right; }
+.hidden { display: none !important; }
+
+.source-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+}
 
 .file-list-header h3 {
     font-size: 0.875rem;
@@ -199,30 +284,44 @@ body {
     border-bottom: none;
 }
 
-.file-info span {
-    margin-right: 1.5rem;
-    color: var(--text-secondary);
+.file-info {
+    display: flex;
+    flex-direction: column;
 }
-.file-info span:first-child {
+.file-info .name {
     color: var(--text-primary);
     font-weight: 500;
+}
+.file-info .meta {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
 }
 .file-status {
     color: var(--success);
 }
 
 .waveform-box {
-    margin-top: 1.5rem;
     padding: 1rem;
     background-color: rgba(0,0,0,0.3);
     border-radius: 4px;
     border: 1px solid var(--border-color);
 }
+.waveform-box h3 {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+.waveform-box .filename {
+    font-size: 0.875rem;
+    font-family: monospace;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+}
 
 .waveform-controls {
     margin-top: 1rem;
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
 }
 
 textarea {
@@ -312,7 +411,7 @@ textarea:focus {
 .clarification-box {
     margin-top: 1.5rem;
     padding: 1rem;
-    background-color: rgba(245, 158, 11, 0.1); /* warning bg */
+    background-color: rgba(245, 158, 11, 0.1);
     border: 1px solid var(--warning);
     border-radius: 4px;
 }
@@ -363,7 +462,7 @@ textarea:focus {
     font-family: monospace;
     font-size: 0.75rem;
     overflow-x: auto;
-    color: #A78BFA; /* light purple */
+    color: #A78BFA;
 }
 
 .plan-details {

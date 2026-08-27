@@ -2,7 +2,8 @@ from google import genai
 from google.genai import types
 from .models import IntentUnderstanding, TransformationPlan, QualityValidation
 
-client = genai.Client()
+import os
+client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 def validate_transformation(
     intent: IntentUnderstanding, 

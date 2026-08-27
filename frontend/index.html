@@ -15,44 +15,89 @@
         </div>
         <div class="header-right">
             <div class="status-indicator">
-                <span class="status-dot"></span>
-                <span class="status-text">State: <span id="global-state">NO_REQUEST</span></span>
+                <span class="status-dot" id="global-status-dot"></span>
+                <span class="status-text" id="global-state">NO REQUEST</span>
             </div>
         </div>
     </header>
+
+    <!-- Workflow Progress Tracker -->
+    <div class="workflow-tracker-container">
+        <div class="workflow-tracker">
+            <div class="step-node active" id="wf-source">
+                <span class="step-icon"></span>
+                <span>01 SOURCE</span>
+            </div>
+            <div class="step-line" id="wf-line-1"></div>
+            
+            <div class="step-node pending" id="wf-transform">
+                <span class="step-icon"></span>
+                <span>02 TRANSFORM</span>
+            </div>
+            <div class="step-line" id="wf-line-2"></div>
+            
+            <div class="step-node pending" id="wf-plan">
+                <span class="step-icon"></span>
+                <span>03 PLAN</span>
+            </div>
+            <div class="step-line" id="wf-line-3"></div>
+            
+            <div class="step-node pending" id="wf-generate">
+                <span class="step-icon"></span>
+                <span>04 GENERATE</span>
+            </div>
+            <div class="step-line" id="wf-line-4"></div>
+            
+            <div class="step-node pending" id="wf-results">
+                <span class="step-icon"></span>
+                <span>05 RESULTS</span>
+            </div>
+        </div>
+    </div>
 
     <main class="workflow-container">
         <!-- Stage 01: Source Audio -->
         <section class="card" id="stage-01">
             <div class="card-header">
                 <h2>01 SOURCE AUDIO</h2>
+                <span class="card-status hidden" id="source-status">✓ Ready</span>
             </div>
             <div class="card-body">
-                <div id="drop-zone" class="drop-zone">
-                    <div class="drop-content">
-                        <span class="icon">🎵</span>
-                        <p>Drag & Drop Audio Files here</p>
-                        <p>or</p>
-                        <button class="btn btn-secondary" onclick="document.getElementById('file-input').click()">Browse Files</button>
-                        <input type="file" id="file-input" multiple accept="audio/wav, audio/mp3, audio/flac, audio/x-m4a" hidden>
-                        <p class="formats">WAV • MP3 • FLAC • M4A</p>
-                    </div>
-                </div>
-
-                <div id="file-list-container" class="hidden">
-                    <div class="file-list-header">
-                        <h3>SOURCE AUDIO — <span id="file-count">0</span> FILES</h3>
-                    </div>
-                    <ul id="file-list" class="file-list">
-                        <!-- Populated by JS -->
-                    </ul>
-                    <div id="original-waveform-container" class="waveform-box hidden">
-                        <div id="original-waveform"></div>
-                        <div class="waveform-controls">
-                            <button id="play-original-btn" class="btn btn-icon">▶ Play Original</button>
+                
+                <div id="drop-zone-container">
+                    <div id="drop-zone" class="drop-zone">
+                        <div class="drop-content">
+                            <span class="icon">🎵</span>
+                            <p>Drag & Drop Audio Files here</p>
+                            <p>or</p>
+                            <button class="btn btn-secondary mt-2" onclick="document.getElementById('file-input').click()">Browse Files</button>
+                            <input type="file" id="file-input" multiple accept="audio/wav, audio/mp3, audio/flac, audio/x-m4a" hidden>
+                            <p class="formats">WAV • MP3 • FLAC • M4A</p>
                         </div>
                     </div>
                 </div>
+
+                <div id="source-content" class="source-grid hidden mt-4">
+                    <div class="file-list-col">
+                        <div class="file-list-header">
+                            <h3 id="file-count-text">SOURCE AUDIO — 0 FILES</h3>
+                        </div>
+                        <ul id="file-list" class="file-list">
+                            <!-- Populated by JS -->
+                        </ul>
+                    </div>
+                    <div class="preview-col">
+                        <div id="original-waveform-container" class="waveform-box">
+                            <h3>PREVIEW</h3>
+                            <p class="filename" id="preview-filename">-</p>
+                            <div id="original-waveform"></div>
+                            <div class="waveform-controls">
+                                <button id="play-original-btn" class="btn btn-primary btn-sm">▶ Play</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </section>
 
@@ -60,6 +105,7 @@
         <section class="card hidden" id="stage-02">
             <div class="card-header">
                 <h2>02 TRANSFORMATION</h2>
+                <span class="card-status hidden" id="transform-status">✓ Analyzed</span>
             </div>
             <div class="card-body">
                 <label>Describe how you want the speech to sound</label>
@@ -83,15 +129,11 @@
                             <span>Target SNR tolerance</span>
                             <span>±1.5 dB</span>
                         </div>
-                        <div class="adv-row">
-                            <span>Random seed</span>
-                            <span>Auto</span>
-                        </div>
                     </div>
                 </details>
 
                 <div class="action-row">
-                    <button id="analyze-btn" class="btn btn-primary">ANALYZE & CREATE PLAN</button>
+                    <button id="analyze-btn" class="btn btn-primary" disabled>ANALYZE & CREATE PLAN</button>
                 </div>
                 
                 <!-- Clarification UI -->
@@ -194,6 +236,7 @@
         <section class="card hidden" id="stage-06">
             <div class="card-header">
                 <h2>06 RESULTS</h2>
+                <span class="card-status hidden" id="qa-status-badge">✓ QA PASSED</span>
             </div>
             <div class="card-body">
                 <div class="results-grid">

@@ -19,7 +19,8 @@ class ValidationResult(BaseModel):
     errors: List[ValidationErrorDetail] = []
 
 def plan_transformation(intent: Intent, profile: AudioProfile, previous_plan: Optional[TransformationPlan] = None, validation_result: Optional[ValidationResult] = None) -> TransformationPlan:
-    client = genai.Client()
+    import os
+    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
     """Uses Gemini to generate an ordered list of registered DSP operations."""
     
     registry_schema = {name: op.model_dump() for name, op in REGISTRY.items()}

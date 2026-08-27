@@ -13,14 +13,86 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('analyze-btn').addEventListener('click', handleAnalyze);
     document.getElementById('approve-btn').addEventListener('click', handleApprove);
+    
+    document.getElementById('prompt-input').addEventListener('input', checkAnalyzeReadiness);
+    
+    // Initial State
+    updateWorkflowState("NO_REQUEST");
 });
 
-function setState(stateStr) {
-    document.getElementById('global-state').innerText = stateStr;
+function updateWorkflowState(stateStr) {
+    document.getElementById('global-state').innerText = stateStr.replace(/_/g, ' ');
+    const dot = document.getElementById('global-status-dot');
+    dot.className = 'status-dot'; // reset
+    
+    const wfSource = document.getElementById('wf-source');
+    const wfTransform = document.getElementById('wf-transform');
+    const wfPlan = document.getElementById('wf-plan');
+    const wfGenerate = document.getElementById('wf-generate');
+    const wfResults = document.getElementById('wf-results');
+    
+    const line1 = document.getElementById('wf-line-1');
+    const line2 = document.getElementById('wf-line-2');
+    const line3 = document.getElementById('wf-line-3');
+    const line4 = document.getElementById('wf-line-4');
+
+    if (stateStr === "NO_REQUEST") {
+        dot.classList.add('active'); // just active/idle
+    } 
+    else if (stateStr === "FILES_READY") {
+        dot.classList.add('active');
+        document.getElementById('source-status').classList.remove('hidden');
+        wfSource.className = 'step-node completed';
+        line1.classList.add('active');
+        wfTransform.className = 'step-node active';
+        
+        document.getElementById('stage-02').classList.remove('hidden');
+    }
+    else if (stateStr === "PROFILING_AND_PLANNING") {
+        dot.classList.add('active');
+        wfTransform.className = 'step-node active';
+    }
+    else if (stateStr === "PLAN_READY") {
+        dot.classList.add('active');
+        document.getElementById('transform-status').classList.remove('hidden');
+        wfTransform.className = 'step-node completed';
+        line2.classList.add('active');
+        wfPlan.className = 'step-node completed'; // plan is immediately shown and ready for approval
+        line3.classList.add('active');
+        wfGenerate.className = 'step-node active';
+        
+        document.getElementById('stage-03').classList.remove('hidden');
+        document.getElementById('stage-04').classList.remove('hidden');
+    }
+    else if (stateStr === "AUGMENTING" || stateStr === "PROFILING_OUTPUT" || stateStr === "QUALITY_CHECK") {
+        dot.classList.add('active');
+        wfGenerate.className = 'step-node active';
+        document.getElementById('stage-05').classList.remove('hidden');
+    }
+    else if (stateStr === "COMPLETED") {
+        dot.classList.add('success');
+        wfGenerate.className = 'step-node completed';
+        line4.classList.add('active');
+        wfResults.className = 'step-node completed';
+        
+        document.getElementById('qa-status-badge').classList.remove('hidden');
+        document.getElementById('stage-06').classList.remove('hidden');
+    }
+    else if (stateStr.includes("FAILED") || stateStr.includes("ERROR")) {
+        dot.classList.add('error');
+    }
 }
 
-function showStage(stageNum) {
-    document.getElementById(`stage-0${stageNum}`).classList.remove('hidden');
+function checkAnalyzeReadiness() {
+    const prompt = document.getElementById('prompt-input').value.trim();
+    const btn = document.getElementById('analyze-btn');
+    if (uploadedFiles.length > 0 && prompt.length > 0) {
+        btn.disabled = false;
+        btn.innerText = "✨ ANALYZE & CREATE PLAN";
+    } else {
+        btn.disabled = true;
+        btn.innerText = "ANALYZE & CREATE PLAN";
+    }
 }
 
 function setupWaveSurfers() {
@@ -64,8 +136,9 @@ function handleFiles(files) {
     
     uploadedFiles = Array.from(files);
     
-    document.getElementById('drop-zone').classList.add('hidden');
-    document.getElementById('file-list-container').classList.remove('hidden');
+    // Shrink the drop zone and show the side-by-side grid
+    document.getElementById('drop-zone').classList.add('compact');
+    document.getElementById('source-content').classList.remove('hidden');
     
     const list = document.getElementById('file-list');
     list.innerHTML = '';
@@ -74,23 +147,23 @@ function handleFiles(files) {
         const li = document.createElement('li');
         li.innerHTML = `
             <div class="file-info">
-                <span>🎵 ${file.name}</span>
-                <span>${(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                <span class="name">🎵 ${file.name}</span>
+                <span class="meta">${(file.size / 1024 / 1024).toFixed(2)} MB</span>
             </div>
             <div class="file-status">✓ Ready</div>
         `;
         list.appendChild(li);
     });
     
-    document.getElementById('file-count').innerText = uploadedFiles.length;
+    document.getElementById('file-count-text').innerText = `SOURCE AUDIO — ${uploadedFiles.length} FILE${uploadedFiles.length > 1 ? 'S' : ''}`;
+    document.getElementById('preview-filename').innerText = uploadedFiles[0].name;
     
     // Load first file into original waveform
     const fileUrl = URL.createObjectURL(uploadedFiles[0]);
-    document.getElementById('original-waveform-container').classList.remove('hidden');
     originalWaveSurfer.load(fileUrl);
     
-    setState("FILES_SELECTED");
-    showStage(2); // Reveal Transformation stage
+    updateWorkflowState("FILES_READY");
+    checkAnalyzeReadiness();
 }
 
 function setupPromptChips() {
@@ -103,17 +176,19 @@ function setupPromptChips() {
             } else {
                 textarea.value = prompt;
             }
+            checkAnalyzeReadiness();
         });
     });
 }
 
 async function handleAnalyze() {
-    const prompt = document.getElementById('prompt-input').value;
+    const prompt = document.getElementById('prompt-input').value.trim();
     if (!prompt || uploadedFiles.length === 0) return;
     
-    setState("PROFILING_AND_PLANNING");
-    document.getElementById('analyze-btn').disabled = true;
-    document.getElementById('analyze-btn').innerText = "ANALYZING...";
+    updateWorkflowState("PROFILING_AND_PLANNING");
+    const btn = document.getElementById('analyze-btn');
+    btn.disabled = true;
+    btn.innerText = "ANALYZING...";
     document.getElementById('clarification-box').classList.add('hidden');
     
     const formData = new FormData();
@@ -128,10 +203,14 @@ async function handleAnalyze() {
         
         const data = await response.json();
         
+        if (!response.ok || data.status === "PLAN_FAILED") {
+            throw new Error(data.message || "Failed to analyze.");
+        }
+        
         if (data.status === "NEEDS_CLARIFICATION") {
-            setState("NEEDS_CLARIFICATION");
-            document.getElementById('analyze-btn').disabled = false;
-            document.getElementById('analyze-btn').innerText = "ANALYZE & CREATE PLAN";
+            updateWorkflowState("NEEDS_CLARIFICATION");
+            btn.disabled = false;
+            btn.innerText = "✨ ANALYZE & CREATE PLAN";
             
             const box = document.getElementById('clarification-box');
             box.classList.remove('hidden');
@@ -140,18 +219,21 @@ async function handleAnalyze() {
             const optionsDiv = document.getElementById('clarification-options');
             optionsDiv.innerHTML = '';
             data.suggested_options.forEach(opt => {
-                const btn = document.createElement('button');
-                btn.className = 'chip';
-                btn.innerText = opt;
-                btn.onclick = () => { document.getElementById('prompt-input').value = opt; box.classList.add('hidden'); };
-                optionsDiv.appendChild(btn);
+                const optBtn = document.createElement('button');
+                optBtn.className = 'chip';
+                optBtn.innerText = opt;
+                optBtn.onclick = () => { 
+                    document.getElementById('prompt-input').value = opt; 
+                    box.classList.add('hidden'); 
+                    checkAnalyzeReadiness();
+                };
+                optionsDiv.appendChild(optBtn);
             });
             return;
         }
         
         if (data.status === "PLAN_READY") {
             currentRequestId = data.request_id;
-            setState("PLAN_READY");
             
             // Populate Stage 3
             document.getElementById('kpi-duration').innerText = `${data.input_profile.file_info.duration.toFixed(1)}s`;
@@ -161,8 +243,6 @@ async function handleAnalyze() {
             document.getElementById('kpi-rms').innerText = `${data.input_profile.signal_quality.rms.toFixed(2)} dB`;
             document.getElementById('kpi-peak').innerText = `${data.input_profile.signal_quality.peak.toFixed(2)} dB`;
             document.getElementById('full-profile-json').innerText = JSON.stringify(data.input_profile, null, 2);
-            
-            showStage(3);
             
             // Populate Stage 4
             document.getElementById('intent-json').innerText = JSON.stringify(data.intent, null, 2);
@@ -174,38 +254,42 @@ async function handleAnalyze() {
                 opList.appendChild(li);
             });
             
-            showStage(4);
+            btn.disabled = true;
+            btn.innerText = "✓ PLAN CREATED";
             
-            document.getElementById('analyze-btn').disabled = false;
-            document.getElementById('analyze-btn').innerText = "ANALYZE & CREATE PLAN";
+            updateWorkflowState("PLAN_READY");
         }
         
     } catch (err) {
         console.error(err);
-        setState("ERROR");
-        alert("Failed to analyze. Check console.");
-        document.getElementById('analyze-btn').disabled = false;
-        document.getElementById('analyze-btn').innerText = "ANALYZE & CREATE PLAN";
+        updateWorkflowState("PLAN_FAILED");
+        alert("Failed to analyze: " + err.message);
+        btn.disabled = false;
+        btn.innerText = "✨ ANALYZE & CREATE PLAN";
     }
 }
 
 async function handleApprove() {
     if (!currentRequestId) return;
     
-    setState("AUGMENTING");
-    document.getElementById('approve-btn').disabled = true;
-    showStage(5); // Progress
+    const approveBtn = document.getElementById('approve-btn');
+    approveBtn.disabled = true;
+    approveBtn.innerText = "GENERATING...";
+    
+    updateWorkflowState("AUGMENTING");
     
     try {
         const response = await fetch(`${API_BASE}/execute/${currentRequestId}`, { method: "POST" });
         const data = await response.json();
         
-        if (data.status === "ACCEPTED") {
+        if (data.status === "QUEUED" || data.status === "ACCEPTED") {
             pollJobStatus(currentRequestId);
         }
     } catch (err) {
         console.error(err);
-        setState("ERROR");
+        updateWorkflowState("EXECUTION_ERROR");
+        approveBtn.disabled = false;
+        approveBtn.innerText = "APPROVE & GENERATE";
     }
 }
 
@@ -219,7 +303,7 @@ async function pollJobStatus(reqId) {
             const data = await res.json();
             
             bar.style.width = `${data.progress}%`;
-            setState(data.status);
+            updateWorkflowState(data.status);
             
             // Rebuild progress list
             const states = ["RECEIVED", "PROFILING", "UNDERSTANDING_INTENT", "PLANNING", "PLAN_READY", "AUGMENTING", "PROFILING_OUTPUT", "QUALITY_CHECK", "COMPLETED"];
@@ -227,9 +311,9 @@ async function pollJobStatus(reqId) {
             
             list.innerHTML = '';
             states.forEach((s, idx) => {
-                if (idx > states.indexOf("PLAN_READY")) { // Only show execution steps here
+                if (idx >= states.indexOf("AUGMENTING")) { // Only show execution steps here
                     const li = document.createElement('li');
-                    li.innerText = s;
+                    li.innerText = s.replace(/_/g, ' ');
                     if (idx < currentIndex) li.className = 'done';
                     else if (idx === currentIndex) li.className = 'active';
                     else li.className = 'pending';
@@ -242,7 +326,7 @@ async function pollJobStatus(reqId) {
                 populateResults(data.metadata);
             } else if (data.status === "PROCESSING_FAILED") {
                 clearInterval(interval);
-                alert("Processing failed: " + data.error);
+                alert("Processing failed: " + data.error_code);
             }
             
         } catch (err) {
@@ -252,13 +336,11 @@ async function pollJobStatus(reqId) {
 }
 
 function populateResults(metadata) {
-    showStage(6);
-    
     // WaveSurfers for Results
     const fileOutput = metadata.files[0];
     
-    document.getElementById('res-orig-file').innerText = fileOutput.filename;
-    document.getElementById('res-aug-file').innerText = "aug_" + fileOutput.filename;
+    document.getElementById('res-orig-file').innerText = fileOutput.original_filename;
+    document.getElementById('res-aug-file').innerText = fileOutput.augmented_filename;
     
     if (!resOrigWaveSurfer) {
         resOrigWaveSurfer = WaveSurfer.create({ container: '#res-orig-waveform', waveColor: '#9CA3AF', progressColor: '#6366F1', height: 60, normalize: true });
@@ -268,11 +350,10 @@ function populateResults(metadata) {
         document.getElementById('play-res-aug').onclick = () => resAugWaveSurfer.playPause();
     }
     
-    // Load audio
-    // Assuming backend is hosted at API_BASE, we need absolute urls for audio
+    // Load audio using correct artifact URIs
     const baseUrl = "http://localhost:8000";
-    resOrigWaveSurfer.load(baseUrl + fileOutput.original);
-    resAugWaveSurfer.load(baseUrl + fileOutput.augmented);
+    resOrigWaveSurfer.load(baseUrl + fileOutput.original_uri);
+    resAugWaveSurfer.load(baseUrl + fileOutput.augmented_uri);
     
     // Metrics
     const tbody = document.getElementById('metrics-tbody');
@@ -289,6 +370,12 @@ function populateResults(metadata) {
             <td class="text-right">${metadata.output_profile.signal_quality.rms.toFixed(2)} dB</td>
             <td>✓</td>
         </tr>
+        <tr>
+            <td>Peak</td>
+            <td class="text-right">${metadata.input_profile.signal_quality.peak.toFixed(2)} dB</td>
+            <td class="text-right">${metadata.output_profile.signal_quality.peak.toFixed(2)} dB</td>
+            <td>✓</td>
+        </tr>
     `;
     
     // QA checks
@@ -300,6 +387,11 @@ function populateResults(metadata) {
         li.className = c.includes("WARN") ? "warn" : "pass";
         qaList.appendChild(li);
     });
+    
+    if (metadata.quality.status === "WARN") {
+        document.getElementById('qa-status-badge').innerText = "⚠ QA WARNING";
+        document.getElementById('qa-status-badge').style.color = "var(--warning)";
+    }
     
     document.getElementById('metadata-json').innerText = JSON.stringify(metadata, null, 2);
 }

@@ -3,7 +3,8 @@ from google.genai import types
 from backend.agents.models import IntentResponse
 
 def extract_intent(prompt: str) -> IntentResponse:
-    client = genai.Client()
+    import os
+    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
     """Uses Gemini to parse a natural language prompt into a structured Semantic Intent or flag as ambiguous."""
     
     system_instruction = """
