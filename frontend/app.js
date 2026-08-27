@@ -6,6 +6,37 @@ let resAugWaveSurfer = null;
 
 const API_BASE = "http://localhost:8000/api";
 
+let toastTimeout;
+function showToast(title, message, type = "error") {
+    const toast = document.getElementById('toast');
+    const toastTitle = document.getElementById('toast-title');
+    const toastMessage = document.getElementById('toast-message');
+    const toastIcon = document.getElementById('toast-icon');
+
+    toastTitle.innerText = title;
+    toastMessage.innerText = message;
+    
+    if (type === "error") {
+        toast.className = "toast error show";
+        toastIcon.innerText = "⚠️";
+    } else if (type === "success") {
+        toast.className = "toast show";
+        toastIcon.innerText = "✓";
+        toast.style.borderLeftColor = "var(--success)";
+        toastIcon.style.color = "var(--success)";
+    }
+
+    clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(() => {
+        hideToast();
+    }, 5000);
+}
+
+function hideToast() {
+    const toast = document.getElementById('toast');
+    toast.className = "toast";
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     setupDragAndDrop();
     setupPromptChips();
@@ -16,6 +47,20 @@ document.addEventListener('DOMContentLoaded', () => {
     
     document.getElementById('proceed-btn').addEventListener('click', () => {
         updateWorkflowState("PROMPT_READY");
+    });
+
+    document.getElementById('back-to-01-btn').addEventListener('click', () => {
+        updateWorkflowState("FILES_READY");
+    });
+    
+    document.getElementById('start-new-btn').addEventListener('click', () => {
+        uploadedFiles = [];
+        currentRequestId = null;
+        document.getElementById('file-list').innerHTML = '';
+        document.getElementById('source-content').classList.add('hidden');
+        document.getElementById('drop-zone').classList.remove('compact');
+        document.getElementById('prompt-input').value = '';
+        updateWorkflowState("NO_REQUEST");
     });
 
     document.getElementById('edit-prompt-btn').addEventListener('click', () => {
@@ -37,7 +82,15 @@ document.addEventListener('DOMContentLoaded', () => {
     updateWorkflowState("NO_REQUEST");
 });
 
+function stopAllAudio() {
+    if (originalWaveSurfer && originalWaveSurfer.isPlaying()) originalWaveSurfer.pause();
+    if (resOrigWaveSurfer && resOrigWaveSurfer.isPlaying()) resOrigWaveSurfer.pause();
+    if (resAugWaveSurfer && resAugWaveSurfer.isPlaying()) resAugWaveSurfer.pause();
+}
+
 function updateWorkflowState(stateStr) {
+    stopAllAudio();
+    
     document.getElementById('global-state').innerText = stateStr.replace(/_/g, ' ');
     const dot = document.getElementById('global-status-dot');
     dot.className = 'status-dot'; // reset
@@ -61,6 +114,17 @@ function updateWorkflowState(stateStr) {
         document.getElementById('stage-04').classList.add('hidden');
         document.getElementById('stage-05').classList.add('hidden');
         document.getElementById('stage-06').classList.add('hidden');
+        document.getElementById('stage-01').scrollIntoView({ behavior: 'smooth' });
+        
+        wfSource.className = 'step-node active';
+        line1.classList.remove('active');
+        wfTransform.className = 'step-node pending';
+        line2.classList.remove('active');
+        wfPlan.className = 'step-node pending';
+        line3.classList.remove('active');
+        wfGenerate.className = 'step-node pending';
+        line4.classList.remove('active');
+        wfResults.className = 'step-node pending';
     } 
     else if (stateStr === "FILES_READY") {
         dot.classList.add('active');
@@ -68,6 +132,16 @@ function updateWorkflowState(stateStr) {
         wfSource.className = 'step-node completed';
         line1.classList.add('active');
         document.getElementById('proceed-btn').classList.remove('hidden');
+        
+        document.getElementById('stage-01').classList.remove('hidden');
+        document.getElementById('stage-02').classList.add('hidden');
+        document.getElementById('stage-03').classList.add('hidden');
+        document.getElementById('stage-04').classList.add('hidden');
+        document.getElementById('stage-05').classList.add('hidden');
+        document.getElementById('stage-06').classList.add('hidden');
+        document.getElementById('stage-01').scrollIntoView({ behavior: 'smooth' });
+        
+        wfTransform.className = 'step-node pending'; // undo active state if going back
     }
     else if (stateStr === "PROMPT_READY") {
         wfTransform.className = 'step-node active';
@@ -143,6 +217,9 @@ function setupWaveSurfers() {
     document.getElementById('play-original-btn').addEventListener('click', () => {
         originalWaveSurfer.playPause();
     });
+    
+    originalWaveSurfer.on('play', () => document.getElementById('play-original-btn').innerText = '⏸ Pause');
+    originalWaveSurfer.on('pause', () => document.getElementById('play-original-btn').innerText = '▶ Play');
 }
 
 function setupDragAndDrop() {
@@ -389,7 +466,7 @@ async function handleAnalyze() {
         pipelineBox.classList.add('hidden');
         console.error(err);
         updateWorkflowState("PLAN_FAILED");
-        alert("Failed to analyze: " + err.message);
+        showToast("Analysis Failed", "Could not analyze the audio and prompt. Please check your inputs and try again.", "error");
         btn.disabled = false;
         btn.innerText = "✨ ANALYZE & CREATE PLAN";
     }
@@ -460,7 +537,7 @@ async function pollJobStatus(reqId) {
                 populateResults(data.metadata);
             } else if (data.status === "PROCESSING_FAILED") {
                 clearInterval(interval);
-                alert("Processing failed: " + data.error_code);
+                showToast("Processing Failed", "An error occurred during audio generation. Please try again.", "error");
             }
             
         } catch (err) {
@@ -492,6 +569,12 @@ function populateResults(metadata) {
             
             document.getElementById('play-res-orig').onclick = () => resOrigWaveSurfer.playPause();
             document.getElementById('play-res-aug').onclick = () => resAugWaveSurfer.playPause();
+            
+            resOrigWaveSurfer.on('play', () => document.getElementById('play-res-orig').innerText = '⏸ Pause');
+            resOrigWaveSurfer.on('pause', () => document.getElementById('play-res-orig').innerText = '▶ Play');
+            
+            resAugWaveSurfer.on('play', () => document.getElementById('play-res-aug').innerText = '⏸ Pause');
+            resAugWaveSurfer.on('pause', () => document.getElementById('play-res-aug').innerText = '▶ Play');
         }
         
         const baseUrl = "http://localhost:8000";

@@ -137,6 +137,7 @@
                 </details>
 
                 <div class="action-row">
+                    <button id="back-to-01-btn" class="btn btn-secondary mr-2">GO BACK</button>
                     <button id="analyze-btn" class="btn btn-primary" disabled>ANALYZE & CREATE PLAN</button>
                 </div>
                 
@@ -227,7 +228,7 @@
                 </div>
                 
                 <div class="action-row mt-4 right-align">
-                    <button id="edit-prompt-btn" class="btn btn-secondary mr-2">EDIT PROMPT</button>
+                    <button id="edit-prompt-btn" class="btn btn-secondary mr-2">GO BACK TO PROMPT</button>
                     <button id="approve-btn" class="btn btn-primary">APPROVE & GENERATE</button>
                 </div>
             </div>
@@ -302,6 +303,7 @@
                 </details>
 
                 <div class="action-row mt-6">
+                    <button id="start-new-btn" class="btn btn-primary mr-2">START NEW REQUEST</button>
                     <button id="download-audio-btn" class="btn btn-secondary mr-2">DOWNLOAD AUDIO</button>
                     <button id="download-meta-btn" class="btn btn-secondary">DOWNLOAD METADATA</button>
                 </div>
@@ -310,5 +312,17 @@
     </main>
 
     <script src="app.js?v=4"></script>
+
+    <!-- Toast Notification -->
+    <div id="toast-container" class="toast-container">
+        <div id="toast" class="toast">
+            <div class="toast-icon" id="toast-icon">⚠️</div>
+            <div class="toast-content">
+                <h4 id="toast-title">Error</h4>
+                <p id="toast-message">Something went wrong.</p>
+            </div>
+            <button class="toast-close" onclick="hideToast()">×</button>
+        </div>
+    </div>
 </body>
 </html>
