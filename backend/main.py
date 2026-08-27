@@ -280,13 +280,15 @@ def execute_dsp_job(req_id: str):
         jobs[req_id]["status"] = "PROFILING_OUTPUT"
         jobs[req_id]["progress"] = 70
         
-        first_out_path = os.path.join(config.STORAGE_ROOT, "requests", req_id, "output", out_files[0]["augmented_filename"])
-        new_profile = profile_audio(first_out_path)
+        output_profiles = {}
+        for out_file_info in out_files:
+            out_path = os.path.join(config.STORAGE_ROOT, "requests", req_id, "output", out_file_info["augmented_filename"])
+            output_profiles[out_file_info["original_filename"]] = profile_audio(out_path)
         
         prof_out_path = os.path.join(config.STORAGE_ROOT, "requests", req_id, "profiles", "output.json")
         with open(prof_out_path, "w") as f:
-            f.write(new_profile.model_dump_json(indent=2))
-        jobs[req_id]["manifest"]["artifacts"]["output_profile"] = "profiles/output.json"
+            json.dump({k: v.model_dump() for k, v in output_profiles.items()}, f, indent=2)
+        jobs[req_id]["manifest"]["artifacts"]["output_profiles"] = "profiles/output.json"
         
         log_event(req_id, "PROFILING_OUTPUT", "COMPLETED", "SUCCESS", duration_ms=int((time.perf_counter()-t_out_prof)*1000))
         
@@ -297,6 +299,10 @@ def execute_dsp_job(req_id: str):
         
         qa_status = "PASS"
         qa_checks = []
+        
+        first_orig_name = out_files[0]["original_filename"]
+        new_profile = output_profiles[first_orig_name]
+        
         for op in plan.operations:
             if op.operation == "noise_injection":
                 target_snr = op.parameters.get("target_snr_db", 10.0)
@@ -329,7 +335,7 @@ def execute_dsp_job(req_id: str):
             "intent": canonical_data["intent"],
             "input_profiles": input_profile_dict,
             "transformation_plan": canonical_data["plan"],
-            "output_profile": new_profile.model_dump(),
+            "output_profiles": {k: v.model_dump() for k, v in output_profiles.items()},
             "quality": qa_report,
             "files": out_files
         }

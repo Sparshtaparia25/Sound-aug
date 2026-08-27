@@ -470,81 +470,94 @@ async function pollJobStatus(reqId) {
 }
 
 function populateResults(metadata) {
-    // WaveSurfers for Results
-    const fileOutput = metadata.files[0];
-    
-    document.getElementById('res-orig-file').innerText = fileOutput.original_filename;
-    document.getElementById('res-aug-file').innerText = fileOutput.augmented_filename;
-    
-    if (!resOrigWaveSurfer) {
-        resOrigWaveSurfer = WaveSurfer.create({ container: '#res-orig-waveform', waveColor: '#9CA3AF', progressColor: '#6366F1', height: 60, normalize: true });
-        resAugWaveSurfer = WaveSurfer.create({ container: '#res-aug-waveform', waveColor: '#10B981', progressColor: '#3B82F6', height: 60, normalize: true });
-        
-        document.getElementById('play-res-orig').onclick = () => resOrigWaveSurfer.playPause();
-        document.getElementById('play-res-aug').onclick = () => resAugWaveSurfer.playPause();
-    }
-    
-    // Load audio using correct artifact URIs
-    const baseUrl = "http://localhost:8000";
-    resOrigWaveSurfer.load(baseUrl + fileOutput.original_uri);
-    resAugWaveSurfer.load(baseUrl + fileOutput.augmented_uri);
-    
-    // Metrics
-    const tbody = document.getElementById('metrics-tbody');
-    tbody.innerHTML = `
-        <tr>
-            <td>SNR</td>
-            <td class="text-right">${metadata.input_profile.noise.estimated_snr.toFixed(1)} dB</td>
-            <td class="text-right">${metadata.output_profile.noise.estimated_snr.toFixed(1)} dB</td>
-            <td>✓</td>
-        </tr>
-        <tr>
-            <td>RMS</td>
-            <td class="text-right">${metadata.input_profile.signal_quality.rms.toFixed(2)} dB</td>
-            <td class="text-right">${metadata.output_profile.signal_quality.rms.toFixed(2)} dB</td>
-            <td>✓</td>
-        </tr>
-        <tr>
-            <td>Peak</td>
-            <td class="text-right">${metadata.input_profile.signal_quality.peak.toFixed(2)} dB</td>
-            <td class="text-right">${metadata.output_profile.signal_quality.peak.toFixed(2)} dB</td>
-            <td>✓</td>
-        </tr>
-    `;
-    
-    // QA checks
-    const qaList = document.getElementById('qa-checklist');
-    qaList.innerHTML = '';
-    metadata.quality.checks.forEach(c => {
-        const li = document.createElement('li');
-        li.innerText = c;
-        li.className = c.includes("WARN") ? "warn" : "pass";
-        qaList.appendChild(li);
+    const select = document.getElementById('result-file-select');
+    select.innerHTML = '';
+    metadata.files.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.original_filename;
+        opt.innerText = f.original_filename;
+        select.appendChild(opt);
     });
-    
-    if (metadata.quality.status === "WARN") {
-        document.getElementById('qa-status-badge').innerText = "⚠ QA WARNING";
-        document.getElementById('qa-status-badge').style.color = "var(--warning)";
-    }
-    
-    document.getElementById('metadata-json').innerText = JSON.stringify(metadata, null, 2);
 
-    document.getElementById('download-audio-btn').onclick = () => {
-        const a = document.createElement('a');
-        a.href = baseUrl + fileOutput.augmented_uri;
-        a.download = fileOutput.augmented_filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+    select.onchange = () => {
+        const selectedOriginalName = select.value;
+        const fileOutput = metadata.files.find(f => f.original_filename === selectedOriginalName);
+        
+        document.getElementById('res-orig-file').innerText = fileOutput.original_filename;
+        document.getElementById('res-aug-file').innerText = fileOutput.augmented_filename;
+        
+        if (!resOrigWaveSurfer) {
+            resOrigWaveSurfer = WaveSurfer.create({ container: '#res-orig-waveform', waveColor: '#9CA3AF', progressColor: '#6366F1', height: 60, normalize: true });
+            resAugWaveSurfer = WaveSurfer.create({ container: '#res-aug-waveform', waveColor: '#10B981', progressColor: '#3B82F6', height: 60, normalize: true });
+            
+            document.getElementById('play-res-orig').onclick = () => resOrigWaveSurfer.playPause();
+            document.getElementById('play-res-aug').onclick = () => resAugWaveSurfer.playPause();
+        }
+        
+        const baseUrl = "http://localhost:8000";
+        resOrigWaveSurfer.load(baseUrl + fileOutput.original_uri);
+        resAugWaveSurfer.load(baseUrl + fileOutput.augmented_uri);
+        
+        const inputProfile = metadata.input_profiles[fileOutput.original_filename];
+        const outputProfile = metadata.output_profiles[fileOutput.original_filename];
+
+        const tbody = document.getElementById('metrics-tbody');
+        tbody.innerHTML = `
+            <tr>
+                <td>SNR</td>
+                <td class="text-right">${inputProfile.noise.estimated_snr.toFixed(1)} dB</td>
+                <td class="text-right">${outputProfile.noise.estimated_snr.toFixed(1)} dB</td>
+                <td>✓</td>
+            </tr>
+            <tr>
+                <td>RMS</td>
+                <td class="text-right">${inputProfile.signal_quality.rms.toFixed(2)} dB</td>
+                <td class="text-right">${outputProfile.signal_quality.rms.toFixed(2)} dB</td>
+                <td>✓</td>
+            </tr>
+            <tr>
+                <td>Peak</td>
+                <td class="text-right">${inputProfile.signal_quality.peak.toFixed(2)} dB</td>
+                <td class="text-right">${outputProfile.signal_quality.peak.toFixed(2)} dB</td>
+                <td>✓</td>
+            </tr>
+        `;
+        
+        const qaList = document.getElementById('qa-checklist');
+        qaList.innerHTML = '';
+        metadata.quality.checks.forEach(c => {
+            const li = document.createElement('li');
+            li.innerText = c;
+            li.className = c.includes("WARN") ? "warn" : "pass";
+            qaList.appendChild(li);
+        });
+        
+        if (metadata.quality.status === "WARN") {
+            document.getElementById('qa-status-badge').innerText = "⚠ QA WARNING";
+            document.getElementById('qa-status-badge').style.color = "var(--warning)";
+        }
+        
+        document.getElementById('metadata-json').innerText = JSON.stringify(metadata, null, 2);
+
+        document.getElementById('download-audio-btn').onclick = () => {
+            const a = document.createElement('a');
+            a.href = baseUrl + fileOutput.augmented_uri;
+            a.download = fileOutput.augmented_filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        };
+        
+        document.getElementById('download-meta-btn').onclick = () => {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(metadata, null, 2));
+            const a = document.createElement('a');
+            a.href = dataStr;
+            a.download = "metadata.json";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        };
     };
     
-    document.getElementById('download-meta-btn').onclick = () => {
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(metadata, null, 2));
-        const a = document.createElement('a');
-        a.href = dataStr;
-        a.download = "metadata.json";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-    };
+    select.onchange();
 }
