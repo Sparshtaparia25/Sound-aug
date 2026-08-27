@@ -1,0 +1,58 @@
+{
+    "traffic_01": {
+        "type": "environmental_noise",
+        "profile": "traffic",
+        "file": "traffic/traffic_01.mp3",
+        "source": "freesound",
+        "license": "CC0",
+        "duration_seconds": 30.0
+    },
+    "crowd_01": {
+        "type": "environmental_noise",
+        "profile": "crowd",
+        "file": "crowd/crowd_01.mp3",
+        "source": "freesound",
+        "license": "CC0",
+        "duration_seconds": 30.0
+    },
+    "cafe_01": {
+        "type": "environmental_noise",
+        "profile": "cafe",
+        "file": "cafe/cafe_01.mp3",
+        "source": "freesound",
+        "license": "CC0",
+        "duration_seconds": 30.0
+    },
+    "office_01": {
+        "type": "environmental_noise",
+        "profile": "office",
+        "file": "office/office_01.mp3",
+        "source": "freesound",
+        "license": "CC0",
+        "duration_seconds": 30.0
+    },
+    "street_01": {
+        "type": "environmental_noise",
+        "profile": "street",
+        "file": "street/street_01.mp3",
+        "source": "freesound",
+        "license": "CC0",
+        "duration_seconds": 30.0
+    },
+    "wind_01": {
+        "type": "environmental_noise",
+        "profile": "wind",
+        "file": "wind/wind_01.mp3",
+        "source": "freesound",
+        "license": "CC0",
+        "duration_seconds": 30.0
+    },
+    "train_station_01": {
+        "type": "environmental_noise",
+        "profile": "train_station",
+        "file": "train_station/train_station_01.mp3",
+        "source": "freesound",
+        "license": "CC0",
+        "duration_seconds": 30.0
+    }
+}

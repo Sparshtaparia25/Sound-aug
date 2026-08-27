@@ -225,6 +225,9 @@ body {
 .btn-primary {
     background-color: var(--accent-primary);
     color: white;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -249,6 +252,7 @@ body {
 .mt-2 { margin-top: 0.5rem; }
 .mt-4 { margin-top: 1rem; }
 .mt-6 { margin-top: 1.5rem; }
+.mb-4 { margin-bottom: 1rem; }
 .mr-2 { margin-right: 0.5rem; }
 .right-align { text-align: right; }
 .hidden { display: none !important; }
@@ -278,6 +282,12 @@ body {
     justify-content: space-between;
     align-items: center;
     font-size: 0.875rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.file-list li:hover {
+    background-color: rgba(255, 255, 255, 0.05);
 }
 
 .file-list li:last-child {
@@ -340,6 +350,42 @@ textarea {
 textarea:focus {
     outline: none;
     border-color: var(--accent-primary);
+}
+
+.form-select {
+    width: 100%;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    padding: 0.5rem;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.875rem;
+}
+
+.form-select:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.form-select option {
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+}
+
+.trash-btn {
+    background: none;
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0.25rem;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.trash-btn:hover {
+    opacity: 1;
 }
 
 .prompt-chips {
@@ -486,29 +532,49 @@ textarea:focus {
 .progress-list {
     list-style: none;
     font-size: 0.875rem;
+    padding: 1rem;
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
 }
 .progress-list li {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
     color: var(--text-secondary);
+    border-bottom: 1px dashed var(--border-color);
+}
+.progress-list li:last-child {
+    border-bottom: none;
 }
 .progress-list li.done {
     color: var(--text-primary);
 }
-.progress-list li.done::before {
-    content: "✓";
-    color: var(--success);
-    font-weight: bold;
-}
-.progress-list li.active::before {
-    content: "●";
+.progress-list li.active {
     color: var(--accent-secondary);
+    font-weight: 500;
 }
-.progress-list li.pending::before {
-    content: "○";
-    color: var(--border-color);
+.progress-list li.pending {
+    color: var(--text-secondary);
+}
+
+.spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+    vertical-align: middle;
+}
+.spinner.mr-2 {
+    margin-right: 0.5rem;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
 .progress-bar-container {

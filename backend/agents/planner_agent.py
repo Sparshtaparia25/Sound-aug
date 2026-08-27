@@ -56,15 +56,67 @@ def plan_transformation(intent: Intent, profile: AudioProfile, previous_plan: Op
     else:
         prompt += """
         Generate specific registered operations with parameters strictly within the bounds.
-        Order matters (e.g., Convolution before Noise, EQ after Noise).
+        You MUST only select capabilities that exist in the Registry.
+        The exact execution order will be strictly enforced by the Deterministic Engine Policy:
+        (1) Source Separation -> (2) Environment/RIR -> (3) Noise -> (4) Distance -> (5) Channel -> (6) Prosody -> (7) EQ/Compression/Loudness.
+        Make reasonable mappings (e.g., 'slightly deeper' -> -2 semitones, 'faster' -> rate=1.2).
+        
+        IMPORTANT: Your output MUST be valid JSON with the following structure:
+        {
+            "seed": 42,
+            "operations": [
+                {
+                    "operation": "operation_name",
+                    "profile": "profile_name_or_empty",
+                    "parameters": {"param1": 1.0}
+                }
+            ],
+            "constraints": {}
+        }
         """
     
+    transformation_operation_schema = {
+        "type": "OBJECT",
+        "properties": {
+            "operation": {
+                "type": "STRING", 
+                "description": "Must be one of the registered operations."
+            },
+            "profile": {
+                "type": "STRING", 
+                "description": "The asset or profile name, e.g., 'auditorium'."
+            },
+            "parameters": {
+                "type": "OBJECT", 
+                "description": "Parameters matching the operation's requirements."
+            }
+        },
+        "required": ["operation"]
+    }
+    
+    transformation_plan_schema = {
+        "type": "OBJECT",
+        "properties": {
+            "seed": {"type": "INTEGER", "description": "Random seed."},
+            "operations": {
+                "type": "ARRAY",
+                "items": transformation_operation_schema,
+                "description": "Ordered list of operations."
+            },
+            "constraints": {
+                "type": "OBJECT", 
+                "description": "Global constraints."
+            }
+        },
+        "required": ["operations"]
+    }
+
     response = client.models.generate_content(
-        model='gemini-2.5-pro',
+        model='models/gemini-3.6-flash',
         contents=prompt,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",
-            response_schema=TransformationPlan,
+            response_schema=transformation_plan_schema,
             temperature=0.1
         )
     )

@@ -61,28 +61,46 @@ class AudioProfile(BaseModel):
     prosody: ProsodyProfile
     environment: AcousticEnvironment
 
-# Keep the other old models for now to not break everything else yet, 
-# although they will be updated in Phase 3.
+# New semantic intent models
+class NoiseIntent(BaseModel):
+    noise_type: str = Field(default="", description="Type of noise, e.g., 'traffic', 'crowd', 'train_station'. Empty if not needed.")
+    target_snr_db: float = Field(default=10.0, description="Target SNR in dB.")
+
+class ChannelIntent(BaseModel):
+    channel_type: str = Field(default="", description="Channel type, e.g., 'telephone', 'mobile_phone'. Empty if not needed.")
+
+class ProsodyIntent(BaseModel):
+    pitch_semitones: float = Field(default=0.0, description="Pitch shift in semitones. 0.0 means no change.")
+    time_stretch_rate: float = Field(default=1.0, description="Time stretch rate. 1.0 means no change.")
+
+class LoudnessIntent(BaseModel):
+    target_lufs: float = Field(default=-23.0, description="Target LUFS.")
+
+class SeparationIntent(BaseModel):
+    required: bool = Field(default=False, description="True if source separation is needed.")
+    target: str = Field(default="vocals_only", description="Target stem to preserve.")
+
 class Intent(BaseModel):
-    target_environment: str = Field(default="", description="The intended environment, e.g., 'large_auditorium', 'office'.")
-    noise_type: str = Field(default="", description="The type of noise to add, e.g., 'traffic', 'crowd'.")
-    noise_required: bool = Field(default=False, description="Whether noise injection is explicitly requested.")
-    speaking_rate: str = Field(default="", description="Desired change in speaking rate, e.g., 'faster', 'slower'.")
-    pitch_change: str = Field(default="", description="Desired change in pitch, e.g., 'higher', 'deeper'.")
-    channel_profile: str = Field(default="", description="The target device or channel, e.g., 'telephone'.")
+    target_environment: str = Field(default="", description="E.g., 'auditorium', 'far_field'. Empty if not needed.")
+    noise: NoiseIntent = Field(default_factory=NoiseIntent)
+    channel: ChannelIntent = Field(default_factory=ChannelIntent)
+    prosody: ProsodyIntent = Field(default_factory=ProsodyIntent)
+    loudness: LoudnessIntent = Field(default_factory=LoudnessIntent)
+    source_separation: SeparationIntent = Field(default_factory=SeparationIntent)
 
 class AmbiguityResponse(BaseModel):
-    status: str = Field(default="NEEDS_CLARIFICATION")
-    reason: str = Field(default="", description="Explanation of why the prompt is ambiguous.")
+    status: str = Field(default="NEEDS_CLARIFICATION", description="Either 'NEEDS_CLARIFICATION' or 'UNSUPPORTED_TRANSFORMATION'")
+    reason: str = Field(default="", description="Explanation of why the prompt is ambiguous or unsupported.")
     suggested_options: List[str] = Field(default_factory=list, description="List of suggested intents the user could select from.")
     
 class IntentResponse(BaseModel):
-    is_ambiguous: bool = Field(description="True if the prompt is too vague to safely infer an intent.")
-    ambiguity_details: AmbiguityResponse
-    intent: Intent
+    is_ambiguous: bool = Field(description="True if the prompt is too vague or unsupported.")
+    ambiguity_details: AmbiguityResponse = Field(default_factory=AmbiguityResponse)
+    intent: Intent = Field(default_factory=Intent)
     
 class TransformationOperation(BaseModel):
-    operation: str = Field(description="Must be one of the registered operations (e.g., rir_convolution, noise_injection, eq, pitch_shift, time_stretch, gain).")
+    operation: str = Field(description="Must be one of the registered operations (e.g., rir_convolution, noise_injection, eq, pitch_shift, time_stretch, gain, source_separation, distance_simulation, channel_simulation, compression, loudness_normalization).")
+
     profile: str = Field(default="", description="The asset or profile name, e.g., 'auditorium', 'traffic', 'telephone'.")
     parameters: Dict[str, Any] = Field(default_factory=dict, description="Parameters matching the operation's requirements and bounds.")
 
@@ -92,7 +110,6 @@ class TransformationPlan(BaseModel):
     constraints: Dict[str, Any] = Field(default_factory=dict, description="Global constraints such as max_peak_dbfs, min_snr_db.")
 
 class QualityValidation(BaseModel):
-    clipping_detected: bool
-    snr_db: float = Field(default=0.0)
-    transformation_success: bool
-    feedback: str = Field(default="", description="Feedback on whether the audio matches the intent. Empty if successful.")
+    transformation_success: bool = Field(description="True if all operations passed deterministic QA and match semantic intent.")
+    feedback: str = Field(default="", description="Detailed explanation of the QA results and any recommendations.")
+    failed_operations: List[str] = Field(default_factory=list, description="List of operations that failed deterministic QA.")

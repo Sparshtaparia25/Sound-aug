@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Speech Data - Augmented</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=4">
     <script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.min.js"></script>
 </head>
 <body>
@@ -97,6 +97,10 @@
                         </div>
                     </div>
                 </div>
+                
+                <div class="action-row right-align">
+                    <button id="proceed-btn" class="btn btn-primary hidden">PROCEED TO PROMPT</button>
+                </div>
 
             </div>
         </section>
@@ -136,6 +140,13 @@
                     <button id="analyze-btn" class="btn btn-primary" disabled>ANALYZE & CREATE PLAN</button>
                 </div>
                 
+                <!-- Analysis Pipeline Loader -->
+                <div id="analysis-pipeline-box" class="hidden mt-4">
+                    <ul class="progress-list" id="analysis-progress-list">
+                        <!-- Populated by JS -->
+                    </ul>
+                </div>
+                
                 <!-- Clarification UI -->
                 <div id="clarification-box" class="clarification-box hidden">
                     <h3>More information is needed</h3>
@@ -151,6 +162,11 @@
                 <h2>03 INPUT AUDIO PROFILE</h2>
             </div>
             <div class="card-body">
+                <div class="mb-4">
+                    <select id="profile-file-select" class="form-select">
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
                 <div class="kpi-grid">
                     <div class="kpi-item">
                         <span class="kpi-label">Duration</span>
@@ -288,6 +304,6 @@
         </section>
     </main>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=4"></script>
 </body>
 </html>

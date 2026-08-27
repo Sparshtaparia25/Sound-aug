@@ -1,21 +1,24 @@
 from google import genai
 from google.genai import types
-from .models import IntentUnderstanding, TransformationPlan, QualityValidation
-
+from .models import Intent, TransformationPlan, QualityValidation
+from backend.dsp.qa import QA_Result
+from typing import List
 import os
-client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
 def validate_transformation(
-    intent: IntentUnderstanding, 
+    intent: Intent, 
     plan: TransformationPlan, 
-    original_profile: dict, 
-    new_profile: dict
+    qa_results: List[QA_Result]
 ) -> QualityValidation:
-    """Uses Gemini to evaluate if the new audio profile matches the user intent and transformation plan."""
+    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+    """Uses Gemini to evaluate and explain the deterministic QA results."""
+    
+    qa_json = [r.model_dump() for r in qa_results]
     
     prompt = f"""
     You are an expert audio Quality Assurance Critic.
-    Evaluate whether the applied audio transformation was successful and meets the User Intent without excessive degradation.
+    The deterministic pipeline has run and provided PASS/FAIL results for each operation based on strict acoustic metrics.
+    Your job is to read these results, determine overall success, and explain the outcome to the user.
     
     User Intent:
     {intent.model_dump_json(indent=2)}
@@ -23,20 +26,15 @@ def validate_transformation(
     Transformation Plan applied:
     {plan.model_dump_json(indent=2)}
     
-    Original Audio Profile:
-    {original_profile}
+    Deterministic QA Results:
+    {qa_json}
     
-    New Audio Profile:
-    {new_profile}
-    
-    Ensure that:
-    1. Clipping is not detected (or minimal).
-    2. SNR is acceptable (unless heavy noise was intentionally added).
-    3. The changes in RMS/duration/etc align with the intent.
+    If any operation failed its QA, the transformation is generally unsuccessful unless it's a minor warning.
+    List failed operations explicitly. Provide a clear explanation of what happened.
     """
     
     response = client.models.generate_content(
-        model='gemini-2.5-pro',
+        model='models/gemini-3.6-flash',
         contents=prompt,
         config=types.GenerateContentConfig(
             response_mime_type="application/json",

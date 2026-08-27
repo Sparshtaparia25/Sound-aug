@@ -21,8 +21,15 @@ def calc_dist(arr: np.ndarray) -> Distribution:
         p90=float(np.percentile(arr, 90))
     )
 
+import os
+import soundfile as sf
+from pathlib import Path
+
 def profile_audio(file_path: str) -> AudioProfile:
     """Analyze the input audio using rigorous DSP metrics."""
+    if not isinstance(file_path, (str, os.PathLike)):
+        raise TypeError(f"profile_audio expected a file path, got {type(file_path).__name__}")
+    file_path = str(file_path)
     # Load audio
     y, sr = librosa.load(file_path, sr=None, mono=False)
     
@@ -31,12 +38,32 @@ def profile_audio(file_path: str) -> AudioProfile:
     y_mono = librosa.to_mono(y) if y.ndim > 1 else y
     duration = librosa.get_duration(y=y_mono, sr=sr)
     
+    try:
+        sf_info = sf.info(file_path)
+        # Attempt to derive bit depth from sf_info.subtype
+        if sf_info.subtype and 'PCM' in sf_info.subtype:
+            if '16' in sf_info.subtype:
+                bit_depth = 16
+            elif '24' in sf_info.subtype:
+                bit_depth = 24
+            elif '32' in sf_info.subtype:
+                bit_depth = 32
+            elif '8' in sf_info.subtype:
+                bit_depth = 8
+            else:
+                bit_depth = 16
+        else:
+            # Fallback for compressed formats like MP3/FLAC/M4A if subtype doesn't say PCM_XX
+            bit_depth = 16
+    except Exception:
+        bit_depth = 16
+
     file_info = FileInfo(
         format=file_path.split('.')[-1].upper(),
         duration=duration,
         sample_rate=sr,
         channels=channels,
-        bit_depth=16 # Defaulting for now, soundfile could provide this
+        bit_depth=bit_depth
     )
     
     # VAD & Temporal

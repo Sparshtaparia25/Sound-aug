@@ -6,6 +6,7 @@ import shutil
 import asyncio
 import hashlib
 import soundfile as sf
+import librosa
 from datetime import datetime
 from typing import Dict, Any, List
 from fastapi import FastAPI, File, UploadFile, Form, BackgroundTasks
@@ -119,18 +120,20 @@ async def create_plan(
                 
             # 2. Header Probe (Decompression bomb & duration protection)
             try:
-                info = sf.info(input_path)
+                y_probe, sr_probe = librosa.load(input_path, sr=None, mono=False)
+                duration = librosa.get_duration(y=y_probe, sr=sr_probe)
+                channels = y_probe.shape[0] if y_probe.ndim > 1 else 1
             except Exception:
                 raise ValueError(f"CORRUPT_AUDIO: {file.filename} is not valid audio.")
                 
-            if info.samplerate > config.MAX_SAMPLE_RATE:
-                raise ValueError(f"UNSUPPORTED_SAMPLE_RATE: {info.samplerate}Hz > {config.MAX_SAMPLE_RATE}Hz")
-            if info.channels > config.MAX_CHANNELS:
-                raise ValueError(f"UNSUPPORTED_CHANNEL_COUNT: {info.channels} > {config.MAX_CHANNELS}")
-            if info.duration > config.MAX_AUDIO_DURATION_SECONDS:
-                raise ValueError(f"AUDIO_TOO_LONG: {file.filename} is {info.duration}s > {config.MAX_AUDIO_DURATION_SECONDS}s")
+            if sr_probe > config.MAX_SAMPLE_RATE:
+                raise ValueError(f"UNSUPPORTED_SAMPLE_RATE: {sr_probe}Hz > {config.MAX_SAMPLE_RATE}Hz")
+            if channels > config.MAX_CHANNELS:
+                raise ValueError(f"UNSUPPORTED_CHANNEL_COUNT: {channels} > {config.MAX_CHANNELS}")
+            if duration > config.MAX_AUDIO_DURATION_SECONDS:
+                raise ValueError(f"AUDIO_TOO_LONG: {file.filename} is {duration}s > {config.MAX_AUDIO_DURATION_SECONDS}s")
                 
-            total_duration += info.duration
+            total_duration += duration
             if total_duration > config.MAX_BATCH_DURATION_SECONDS:
                 raise ValueError("MAX_BATCH_DURATION_EXCEEDED")
                 
@@ -140,7 +143,7 @@ async def create_plan(
                 "path": input_path,
                 "sha256": file_sha,
                 "size_bytes": size_bytes,
-                "duration": info.duration
+                "duration": duration
             })
             
         jobs[req_id]["files"] = saved_files
@@ -153,12 +156,17 @@ async def create_plan(
         jobs[req_id]["status"] = "PROFILING"
         jobs[req_id]["progress"] = 10
         
-        # Profile first file (homogeneous batch assumption)
-        original_profile = profile_audio(saved_files[0]["path"])
+        input_profiles = {}
+        for file_info in saved_files:
+            prof = profile_audio(file_info["path"])
+            input_profiles[file_info["filename"]] = prof
+            
+        original_profile = input_profiles[saved_files[0]["filename"]]
+        
         prof_path = os.path.join(config.STORAGE_ROOT, "requests", req_id, "profiles", "input.json")
         with open(prof_path, "w") as f:
-            f.write(original_profile.model_dump_json(indent=2))
-        jobs[req_id]["manifest"]["artifacts"]["input_profile"] = "profiles/input.json"
+            json.dump({k: v.model_dump() for k, v in input_profiles.items()}, f, indent=2)
+        jobs[req_id]["manifest"]["artifacts"]["input_profiles"] = "profiles/input.json"
         
         log_event(req_id, "PROFILING", "COMPLETED", "SUCCESS", duration_ms=int((time.perf_counter()-t_prof)*1000))
         
@@ -212,7 +220,7 @@ async def create_plan(
         return JSONResponse(content={
             "status": "PLAN_READY",
             "request_id": req_id,
-            "input_profile": original_profile.model_dump(),
+            "input_profiles": {k: v.model_dump() for k, v in input_profiles.items()},
             "intent": canonical_data["intent"],
             "plan": canonical_data["plan"]
         })
@@ -319,7 +327,7 @@ def execute_dsp_job(req_id: str):
             "request_id": req_id,
             "prompt": canonical_data["prompt"],
             "intent": canonical_data["intent"],
-            "input_profile": input_profile_dict,
+            "input_profiles": input_profile_dict,
             "transformation_plan": canonical_data["plan"],
             "output_profile": new_profile.model_dump(),
             "quality": qa_report,

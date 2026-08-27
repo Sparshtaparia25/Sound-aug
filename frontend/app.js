@@ -14,6 +14,23 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('analyze-btn').addEventListener('click', handleAnalyze);
     document.getElementById('approve-btn').addEventListener('click', handleApprove);
     
+    document.getElementById('proceed-btn').addEventListener('click', () => {
+        updateWorkflowState("PROMPT_READY");
+    });
+
+    document.getElementById('edit-prompt-btn').addEventListener('click', () => {
+        document.getElementById('stage-03').classList.add('hidden');
+        document.getElementById('stage-04').classList.add('hidden');
+        updateWorkflowState("PROMPT_READY");
+        
+        const btn = document.getElementById('analyze-btn');
+        btn.disabled = false;
+        btn.innerText = "✨ RE-ANALYZE";
+        document.getElementById('wf-plan').className = 'step-node pending';
+        document.getElementById('wf-line-2').classList.remove('active');
+        document.getElementById('wf-line-3').classList.remove('active');
+    });
+    
     document.getElementById('prompt-input').addEventListener('input', checkAnalyzeReadiness);
     
     // Initial State
@@ -38,15 +55,25 @@ function updateWorkflowState(stateStr) {
 
     if (stateStr === "NO_REQUEST") {
         dot.classList.add('active'); // just active/idle
+        document.getElementById('stage-01').classList.remove('hidden');
+        document.getElementById('stage-02').classList.add('hidden');
+        document.getElementById('stage-03').classList.add('hidden');
+        document.getElementById('stage-04').classList.add('hidden');
+        document.getElementById('stage-05').classList.add('hidden');
+        document.getElementById('stage-06').classList.add('hidden');
     } 
     else if (stateStr === "FILES_READY") {
         dot.classList.add('active');
         document.getElementById('source-status').classList.remove('hidden');
         wfSource.className = 'step-node completed';
         line1.classList.add('active');
+        document.getElementById('proceed-btn').classList.remove('hidden');
+    }
+    else if (stateStr === "PROMPT_READY") {
         wfTransform.className = 'step-node active';
-        
+        document.getElementById('stage-01').classList.add('hidden');
         document.getElementById('stage-02').classList.remove('hidden');
+        document.getElementById('stage-02').scrollIntoView({ behavior: 'smooth' });
     }
     else if (stateStr === "PROFILING_AND_PLANNING") {
         dot.classList.add('active');
@@ -61,13 +88,20 @@ function updateWorkflowState(stateStr) {
         line3.classList.add('active');
         wfGenerate.className = 'step-node active';
         
+        document.getElementById('stage-01').classList.add('hidden');
+        document.getElementById('stage-02').classList.add('hidden');
         document.getElementById('stage-03').classList.remove('hidden');
         document.getElementById('stage-04').classList.remove('hidden');
+        document.getElementById('stage-03').scrollIntoView({ behavior: 'smooth' });
     }
     else if (stateStr === "AUGMENTING" || stateStr === "PROFILING_OUTPUT" || stateStr === "QUALITY_CHECK") {
         dot.classList.add('active');
         wfGenerate.className = 'step-node active';
+        
+        document.getElementById('stage-03').classList.add('hidden');
+        document.getElementById('stage-04').classList.add('hidden');
         document.getElementById('stage-05').classList.remove('hidden');
+        document.getElementById('stage-05').scrollIntoView({ behavior: 'smooth' });
     }
     else if (stateStr === "COMPLETED") {
         dot.classList.add('success');
@@ -75,8 +109,10 @@ function updateWorkflowState(stateStr) {
         line4.classList.add('active');
         wfResults.className = 'step-node completed';
         
+        document.getElementById('stage-05').classList.add('hidden');
         document.getElementById('qa-status-badge').classList.remove('hidden');
         document.getElementById('stage-06').classList.remove('hidden');
+        document.getElementById('stage-06').scrollIntoView({ behavior: 'smooth' });
     }
     else if (stateStr.includes("FAILED") || stateStr.includes("ERROR")) {
         dot.classList.add('error');
@@ -134,36 +170,66 @@ function setupDragAndDrop() {
 function handleFiles(files) {
     if (files.length === 0) return;
     
-    uploadedFiles = Array.from(files);
+    const newFiles = Array.from(files);
+    uploadedFiles = uploadedFiles.concat(newFiles);
     
     // Shrink the drop zone and show the side-by-side grid
     document.getElementById('drop-zone').classList.add('compact');
     document.getElementById('source-content').classList.remove('hidden');
     
+    renderFileList();
+    
+    // Load first file into original waveform
+    if (uploadedFiles.length > 0) {
+        loadPreview(uploadedFiles[0]);
+    }
+    
+    updateWorkflowState("FILES_READY");
+    checkAnalyzeReadiness();
+}
+
+function renderFileList() {
     const list = document.getElementById('file-list');
     list.innerHTML = '';
     
-    uploadedFiles.forEach(file => {
+    uploadedFiles.forEach((file, index) => {
         const li = document.createElement('li');
         li.innerHTML = `
             <div class="file-info">
                 <span class="name">🎵 ${file.name}</span>
                 <span class="meta">${(file.size / 1024 / 1024).toFixed(2)} MB</span>
             </div>
-            <div class="file-status">✓ Ready</div>
+            <div class="file-status">✓ Ready <button class="trash-btn" data-index="${index}">🗑️</button></div>
         `;
+        
+        li.addEventListener('click', (e) => {
+            if (e.target.classList.contains('trash-btn')) {
+                uploadedFiles.splice(index, 1);
+                renderFileList();
+                if (uploadedFiles.length > 0) {
+                    loadPreview(uploadedFiles[0]);
+                } else {
+                    document.getElementById('source-content').classList.add('hidden');
+                    document.getElementById('drop-zone').classList.remove('compact');
+                    updateWorkflowState("NO_REQUEST");
+                }
+                checkAnalyzeReadiness();
+                e.stopPropagation();
+                return;
+            }
+            loadPreview(file);
+        });
+        
         list.appendChild(li);
     });
     
     document.getElementById('file-count-text').innerText = `SOURCE AUDIO — ${uploadedFiles.length} FILE${uploadedFiles.length > 1 ? 'S' : ''}`;
-    document.getElementById('preview-filename').innerText = uploadedFiles[0].name;
-    
-    // Load first file into original waveform
-    const fileUrl = URL.createObjectURL(uploadedFiles[0]);
+}
+
+function loadPreview(file) {
+    document.getElementById('preview-filename').innerText = file.name;
+    const fileUrl = URL.createObjectURL(file);
     originalWaveSurfer.load(fileUrl);
-    
-    updateWorkflowState("FILES_READY");
-    checkAnalyzeReadiness();
 }
 
 function setupPromptChips() {
@@ -188,9 +254,46 @@ async function handleAnalyze() {
     updateWorkflowState("PROFILING_AND_PLANNING");
     const btn = document.getElementById('analyze-btn');
     btn.disabled = true;
-    btn.innerText = "ANALYZING...";
+    btn.innerHTML = `<span class="spinner mr-2"></span> ANALYZING...`;
     document.getElementById('clarification-box').classList.add('hidden');
     
+    // Show checklist pipeline
+    const pipelineBox = document.getElementById('analysis-pipeline-box');
+    const pipelineList = document.getElementById('analysis-progress-list');
+    pipelineBox.classList.remove('hidden');
+    
+    const analysisSteps = ["Validating limits & security", "Profiling audio characteristics", "Extracting semantic intent", "Generating DSP transformation plan"];
+    let currentStep = 0;
+    
+    const renderAnalysisPipeline = () => {
+        pipelineList.innerHTML = '';
+        analysisSteps.forEach((s, idx) => {
+            const li = document.createElement('li');
+            let iconHtml = '';
+            if (idx < currentStep) {
+                li.className = 'done';
+                iconHtml = '<span class="status-icon" style="color: var(--success); font-weight: bold;">✓</span>';
+            } else if (idx === currentStep) {
+                li.className = 'active';
+                iconHtml = '<span class="spinner" style="border-top-color: var(--accent-secondary); border-color: rgba(99, 102, 241, 0.3);"></span>';
+            } else {
+                li.className = 'pending';
+                iconHtml = '<span class="status-icon" style="color: var(--border-color);">○</span>';
+            }
+            li.innerHTML = `${iconHtml} ${s}`;
+            pipelineList.appendChild(li);
+        });
+    };
+    renderAnalysisPipeline();
+    
+    // Simulate progression visually while fetch happens
+    const simInterval = setInterval(() => {
+        if (currentStep < 3) {
+            currentStep++;
+            renderAnalysisPipeline();
+        }
+    }, 2500);
+
     const formData = new FormData();
     formData.append("prompt", prompt);
     uploadedFiles.forEach(f => formData.append("files", f));
@@ -229,6 +332,8 @@ async function handleAnalyze() {
                 };
                 optionsDiv.appendChild(optBtn);
             });
+            clearInterval(simInterval);
+            pipelineBox.classList.add('hidden');
             return;
         }
         
@@ -236,13 +341,29 @@ async function handleAnalyze() {
             currentRequestId = data.request_id;
             
             // Populate Stage 3
-            document.getElementById('kpi-duration').innerText = `${data.input_profile.file_info.duration.toFixed(1)}s`;
-            document.getElementById('kpi-sr').innerText = `${(data.input_profile.file_info.sample_rate/1000).toFixed(1)} kHz`;
-            document.getElementById('kpi-ch').innerText = data.input_profile.file_info.channels === 1 ? 'Mono' : 'Stereo';
-            document.getElementById('kpi-snr').innerText = `${data.input_profile.noise.estimated_snr.toFixed(1)} dB`;
-            document.getElementById('kpi-rms').innerText = `${data.input_profile.signal_quality.rms.toFixed(2)} dB`;
-            document.getElementById('kpi-peak').innerText = `${data.input_profile.signal_quality.peak.toFixed(2)} dB`;
-            document.getElementById('full-profile-json').innerText = JSON.stringify(data.input_profile, null, 2);
+            const select = document.getElementById('profile-file-select');
+            select.innerHTML = '';
+            window.currentInputProfiles = data.input_profiles;
+            
+            Object.keys(data.input_profiles).forEach(filename => {
+                const opt = document.createElement('option');
+                opt.value = filename;
+                opt.innerText = filename;
+                select.appendChild(opt);
+            });
+            
+            select.onchange = () => {
+                const selectedFile = select.value;
+                const profile = window.currentInputProfiles[selectedFile];
+                document.getElementById('kpi-duration').innerText = `${profile.file_info.duration.toFixed(1)}s`;
+                document.getElementById('kpi-sr').innerText = `${(profile.file_info.sample_rate/1000).toFixed(1)} kHz`;
+                document.getElementById('kpi-ch').innerText = profile.file_info.channels === 1 ? 'Mono' : 'Stereo';
+                document.getElementById('kpi-snr').innerText = `${profile.noise.estimated_snr.toFixed(1)} dB`;
+                document.getElementById('kpi-rms').innerText = `${profile.signal_quality.rms.toFixed(2)} dB`;
+                document.getElementById('kpi-peak').innerText = `${profile.signal_quality.peak.toFixed(2)} dB`;
+                document.getElementById('full-profile-json').innerText = JSON.stringify(profile, null, 2);
+            };
+            select.onchange(); // trigger initial population
             
             // Populate Stage 4
             document.getElementById('intent-json').innerText = JSON.stringify(data.intent, null, 2);
@@ -258,9 +379,14 @@ async function handleAnalyze() {
             btn.innerText = "✓ PLAN CREATED";
             
             updateWorkflowState("PLAN_READY");
+            clearInterval(simInterval);
+            pipelineBox.classList.add('hidden');
+            
         }
         
     } catch (err) {
+        clearInterval(simInterval);
+        pipelineBox.classList.add('hidden');
         console.error(err);
         updateWorkflowState("PLAN_FAILED");
         alert("Failed to analyze: " + err.message);
@@ -274,7 +400,7 @@ async function handleApprove() {
     
     const approveBtn = document.getElementById('approve-btn');
     approveBtn.disabled = true;
-    approveBtn.innerText = "GENERATING...";
+    approveBtn.innerHTML = `<span class="spinner mr-2"></span> GENERATING...`;
     
     updateWorkflowState("AUGMENTING");
     
@@ -313,10 +439,18 @@ async function pollJobStatus(reqId) {
             states.forEach((s, idx) => {
                 if (idx >= states.indexOf("AUGMENTING")) { // Only show execution steps here
                     const li = document.createElement('li');
-                    li.innerText = s.replace(/_/g, ' ');
-                    if (idx < currentIndex) li.className = 'done';
-                    else if (idx === currentIndex) li.className = 'active';
-                    else li.className = 'pending';
+                    let iconHtml = '';
+                    if (idx < currentIndex) {
+                        li.className = 'done';
+                        iconHtml = '<span class="status-icon" style="color: var(--success); font-weight: bold;">✓</span>';
+                    } else if (idx === currentIndex) {
+                        li.className = 'active';
+                        iconHtml = '<span class="spinner" style="border-top-color: var(--accent-secondary); border-color: rgba(99, 102, 241, 0.3);"></span>';
+                    } else {
+                        li.className = 'pending';
+                        iconHtml = '<span class="status-icon" style="color: var(--border-color);">○</span>';
+                    }
+                    li.innerHTML = `${iconHtml} ${s.replace(/_/g, ' ')}`;
                     list.appendChild(li);
                 }
             });
@@ -394,4 +528,23 @@ function populateResults(metadata) {
     }
     
     document.getElementById('metadata-json').innerText = JSON.stringify(metadata, null, 2);
+
+    document.getElementById('download-audio-btn').onclick = () => {
+        const a = document.createElement('a');
+        a.href = baseUrl + fileOutput.augmented_uri;
+        a.download = fileOutput.augmented_filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    };
+    
+    document.getElementById('download-meta-btn').onclick = () => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(metadata, null, 2));
+        const a = document.createElement('a');
+        a.href = dataStr;
+        a.download = "metadata.json";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    };
 }

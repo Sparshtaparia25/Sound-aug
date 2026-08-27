@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     MAX_BATCH_FILES: int = int(os.getenv("MAX_BATCH_FILES", 20))
     MAX_BATCH_DURATION_SECONDS: int = int(os.getenv("MAX_BATCH_DURATION_SECONDS", 600))
     
+    # ML Features
+    SEPARATION_ENABLED: bool = os.getenv("SEPARATION_ENABLED", "false").lower() == "true"
+    
     # Decoding / Memory Limits
     MAX_SAMPLE_RATE: int = int(os.getenv("MAX_SAMPLE_RATE", 96000))
     MAX_CHANNELS: int = int(os.getenv("MAX_CHANNELS", 2))

@@ -1,5 +1,8 @@
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
+from backend.dsp.asset_manager import asset_manager
+from backend.dsp.acoustics.room_profiles import ROOM_PROFILES
+from backend.config import config
 
 class ParameterBound(BaseModel):
     min_val: float
@@ -20,13 +23,25 @@ REGISTRY = {
         name="rir_convolution",
         family="Acoustic Environment Simulation",
         description="Applies a room impulse response via FFT convolution.",
-        required_parameters=["wet_mix"],
-        optional_parameters=[],
+        required_parameters=[],
+        optional_parameters=["wet_mix"],
         parameter_bounds={
             "wet_mix": ParameterBound(min_val=0.0, max_val=1.0)
         },
-        allowed_profiles=["auditorium", "classroom", "office"],
+        allowed_profiles=list(ROOM_PROFILES.keys()),
         expected_effects=["Reverberation ↑", "RT60 ↑", "Direct/reverberant ratio ↓"]
+    ),
+    "distance_simulation": OperationDefinition(
+        name="distance_simulation",
+        family="Acoustic Environment Simulation",
+        description="Simulates increased source-to-microphone distance.",
+        required_parameters=["distance_factor"],
+        optional_parameters=[],
+        parameter_bounds={
+            "distance_factor": ParameterBound(min_val=1.0, max_val=5.0)
+        },
+        allowed_profiles=["far_field", "distant"],
+        expected_effects=["Loudness ↓", "Direct/reverberant ratio ↓", "High-frequency energy ↓"]
     ),
     "noise_injection": OperationDefinition(
         name="noise_injection",
@@ -37,8 +52,18 @@ REGISTRY = {
         parameter_bounds={
             "target_snr_db": ParameterBound(min_val=0.0, max_val=40.0)
         },
-        allowed_profiles=["traffic", "cafe", "crowd", "office"],
+        allowed_profiles=asset_manager.get_available_noise_profiles(),
         expected_effects=["SNR ↓", "Noise floor ↑"]
+    ),
+    "channel_simulation": OperationDefinition(
+        name="channel_simulation",
+        family="Channel / Device",
+        description="Simulates device frequency response, band limitations, and channel effects.",
+        required_parameters=[],
+        optional_parameters=[],
+        parameter_bounds={},
+        allowed_profiles=["telephone", "mobile_phone", "low_quality_microphone", "radio"],
+        expected_effects=["Spectral Bandwidth ↓", "Coloration changes"]
     ),
     "pitch_shift": OperationDefinition(
         name="pitch_shift",
@@ -67,15 +92,15 @@ REGISTRY = {
     "eq": OperationDefinition(
         name="eq",
         family="Signal-Level Augmentation",
-        description="Applies a bandpass filter or generic EQ.",
-        required_parameters=["highpass_freq", "lowpass_freq"],
-        optional_parameters=[],
+        description="Applies a generic EQ.",
+        required_parameters=[],
+        optional_parameters=["low_shelf_db", "high_shelf_db"],
         parameter_bounds={
-            "highpass_freq": ParameterBound(min_val=20.0, max_val=8000.0),
-            "lowpass_freq": ParameterBound(min_val=100.0, max_val=20000.0)
+            "low_shelf_db": ParameterBound(min_val=-20.0, max_val=20.0),
+            "high_shelf_db": ParameterBound(min_val=-20.0, max_val=20.0)
         },
-        allowed_profiles=["telephone", "custom"],
-        expected_effects=["Spectral Bandwidth ↓"]
+        allowed_profiles=["telephone", "voice_bright", "voice_warm", "custom"],
+        expected_effects=["Spectral balance changed"]
     ),
     "gain": OperationDefinition(
         name="gain",
@@ -88,8 +113,48 @@ REGISTRY = {
         },
         allowed_profiles=[],
         expected_effects=["RMS ↑ or ↓", "Peak ↑ or ↓"]
+    ),
+    "compression": OperationDefinition(
+        name="compression",
+        family="Signal-Level Augmentation",
+        description="Applies dynamic range compression.",
+        required_parameters=["threshold_db", "ratio"],
+        optional_parameters=["attack_ms", "release_ms", "makeup_gain_db"],
+        parameter_bounds={
+            "threshold_db": ParameterBound(min_val=-60.0, max_val=0.0),
+            "ratio": ParameterBound(min_val=1.0, max_val=20.0),
+            "attack_ms": ParameterBound(min_val=0.1, max_val=100.0),
+            "release_ms": ParameterBound(min_val=10.0, max_val=1000.0),
+            "makeup_gain_db": ParameterBound(min_val=0.0, max_val=24.0)
+        },
+        allowed_profiles=[],
+        expected_effects=["Dynamic range ↓", "Peak controlled"]
+    ),
+    "loudness_normalization": OperationDefinition(
+        name="loudness_normalization",
+        family="Signal-Level Augmentation",
+        description="Normalizes audio to a target LUFS.",
+        required_parameters=["target_lufs"],
+        optional_parameters=[],
+        parameter_bounds={
+            "target_lufs": ParameterBound(min_val=-40.0, max_val=-5.0)
+        },
+        allowed_profiles=[],
+        expected_effects=["RMS changed", "Target LUFS matched"]
     )
 }
+
+if config.SEPARATION_ENABLED:
+    REGISTRY["source_separation"] = OperationDefinition(
+        name="source_separation",
+        family="Machine Learning Processing",
+        description="Separates background music from vocals to preserve speech.",
+        required_parameters=[],
+        optional_parameters=[],
+        parameter_bounds={},
+        allowed_profiles=["vocals_only", "speech_isolation"],
+        expected_effects=["Background music ↓", "Vocals isolated"]
+    )
 
 def validate_operation(op_name: str, profile: Optional[str], params: Dict[str, Any]) -> bool:
     if op_name not in REGISTRY:
@@ -111,3 +176,4 @@ def validate_operation(op_name: str, profile: Optional[str], params: Dict[str, A
                 raise ValueError(f"Parameter '{param_name}' value {param_val} out of bounds [{bounds.min_val}, {bounds.max_val}] for {op_name}")
                 
     return True
+
