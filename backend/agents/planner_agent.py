@@ -67,6 +67,7 @@ def plan_transformation(intent: Intent, profile: AudioProfile, previous_plan: Op
             "operations": [
                 {
                     "operation": "operation_name",
+                    "reasoning": "Explanation of why this operation and parameters were chosen.",
                     "profile": "profile_name_or_empty",
                     "parameters": {"param1": 1.0}
                 }
@@ -82,16 +83,20 @@ def plan_transformation(intent: Intent, profile: AudioProfile, previous_plan: Op
                 "type": "STRING", 
                 "description": "Must be one of the registered operations."
             },
+            "reasoning": {
+                "type": "STRING",
+                "description": "Your step-by-step thinking for selecting this operation and its parameters."
+            },
             "profile": {
                 "type": "STRING", 
-                "description": "The asset or profile name, e.g., 'auditorium'."
+                "description": "The exact strict string for the asset or profile name, e.g., 'auditorium'."
             },
             "parameters": {
                 "type": "OBJECT", 
                 "description": "Parameters matching the operation's requirements."
             }
         },
-        "required": ["operation"]
+        "required": ["operation", "parameters", "reasoning", "profile"]
     }
     
     transformation_plan_schema = {

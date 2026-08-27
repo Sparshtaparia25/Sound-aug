@@ -100,8 +100,8 @@ class IntentResponse(BaseModel):
     
 class TransformationOperation(BaseModel):
     operation: str = Field(description="Must be one of the registered operations (e.g., rir_convolution, noise_injection, eq, pitch_shift, time_stretch, gain, source_separation, distance_simulation, channel_simulation, compression, loudness_normalization).")
-
-    profile: str = Field(default="", description="The asset or profile name, e.g., 'auditorium', 'traffic', 'telephone'.")
+    reasoning: str = Field(default="", description="Your step-by-step thinking for selecting this operation and its parameters.")
+    profile: str = Field(default="", description="The exact strict string for the asset or profile name, e.g., 'auditorium', 'traffic', 'telephone'. Do not include reasoning here.")
     parameters: Dict[str, Any] = Field(default_factory=dict, description="Parameters matching the operation's requirements and bounds.")
 
 class TransformationPlan(BaseModel):
