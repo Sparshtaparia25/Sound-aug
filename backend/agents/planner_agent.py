@@ -57,6 +57,7 @@ def plan_transformation(intent: Intent, profile: AudioProfile, previous_plan: Op
         prompt += """
         Generate specific registered operations with parameters strictly within the bounds.
         You MUST only select capabilities that exist in the Registry.
+        You MUST include ALL `required_parameters` for each operation inside the `parameters` object (e.g. if using `noise_injection`, you MUST provide `target_snr_db`).
         The exact execution order will be strictly enforced by the Deterministic Engine Policy:
         (1) Source Separation -> (2) Environment/RIR -> (3) Noise -> (4) Distance -> (5) Channel -> (6) Prosody -> (7) EQ/Compression/Loudness.
         Make reasonable mappings (e.g., 'slightly deeper' -> -2 semitones, 'faster' -> rate=1.2).
@@ -69,7 +70,7 @@ def plan_transformation(intent: Intent, profile: AudioProfile, previous_plan: Op
                     "operation": "operation_name",
                     "reasoning": "Explanation of why this operation and parameters were chosen.",
                     "profile": "profile_name_or_empty",
-                    "parameters": {"param1": 1.0}
+                    "parameters": {"target_snr_db": 10.0}
                 }
             ],
             "constraints": {}
